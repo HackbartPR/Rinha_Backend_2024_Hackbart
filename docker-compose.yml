@@ -18,6 +18,8 @@ services:
       - 5432:5432
     networks:
       - RinhaNetwork
+    volumes:
+      - ./script.sql:/docker-entrypoint-initdb.d/init.sql    
     environment:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: 1234
