@@ -1,0 +1,42 @@
+version: '3.1'
+
+services:
+
+  app:
+    build: 
+      context: .
+    networks:
+      - RinhaNetwork
+    ports:
+      - 8081:8080
+      - 8082:8081 
+
+  db:
+    image: postgres
+    hostname: db
+    ports:
+      - 5432:5432
+    networks:
+      - RinhaNetwork
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: 1234
+      POSTGRES_DB: RinhaDB
+
+    # volumes:
+    #   - Trocar para um arquivo init.sql para criar as tabelas iniciais
+    #   - Criar um arquivo de configuração do Postgress para configurar pools ...
+
+  adminer:
+    image: adminer
+    ports:
+      - 8080:8080
+    networks:
+      - RinhaNetwork
+
+# volumes:
+#   pgsql:
+
+networks:
+  RinhaNetwork:
+    driver: bridge
