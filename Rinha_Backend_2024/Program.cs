@@ -14,30 +14,50 @@ app.MapGet("/clientes", async (Contexto db) =>
 app.MapGet("/transacoes", async (Contexto db) =>
     await db.Transacoes.ToListAsync());
 
-app.MapPost("/clientes/{id}/transacoes", async (int id, Transacao transacao, Contexto db) =>
+app.MapPost("/clientes/{id}/transacoes", async (int id, Transacao transacao, Contexto db, CancellationToken cancellationToken) =>
 {
-    Cliente? cliente = await db.Clientes.FirstOrDefaultAsync(c => c.Id == id);
+    Cliente? cliente = await db.Clientes.FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
     if (cliente == null) return Results.NotFound();
 
-    if (transacao.Tipo.Equals('d'))
-    {
-        long valor = cliente.Saldo - transacao.Valor;
-        if (valor < cliente.Limite) return Results.StatusCode(422);
+    if (!cliente.Transacao(transacao))
+        return Results.StatusCode(422);
 
-        cliente.Saldo = valor;
-    }
-    else if (transacao.Tipo.Equals('c'))
-        cliente.Saldo += transacao.Valor;
-
-    transacao.ClienteId = id;
-    transacao.DataCriacao = DateTime.UtcNow;
+    transacao.Registrar(cliente.Id);
 
     db.Add(transacao);
-    await db.SaveChangesAsync();
-
-    // Utilizar procedure para fazer este papel acima? 
+    await db.SaveChangesAsync(cancellationToken);
 
     return Results.Ok(new { cliente.Limite, cliente.Saldo});
+});
+
+app.MapGet("/clientes/{id}/extrato", async (int id, Contexto db, CancellationToken cancellationToken) =>
+{
+    if(!await db.Clientes.AnyAsync(cancellationToken))
+        return Results.NotFound();
+
+    return Results.Ok(
+        await db.Clientes
+        .Where(c => c.Id == id)
+        .Select(c => new
+        {
+            Saldo = new
+            {
+                Total = c.Saldo,
+                DataExtrato = DateTime.UtcNow,
+                c.Limite
+            },
+            Ultimas_Transacoes = c.Transacoes
+                .Select(t => new
+                {
+                    t.Valor,
+                    t.Tipo,
+                    t.Descricao,
+                    Realizada_Em = t.DataCriacao
+                })
+                .Take(10).OrderByDescending(t => t.Realizada_Em).ToList(),
+        })
+        .FirstOrDefaultAsync(cancellationToken)
+    ) ;
 });
 
 app.Run();
