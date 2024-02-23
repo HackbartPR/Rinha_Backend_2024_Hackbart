@@ -5,33 +5,40 @@ x-app: &default-app
       context: .
   networks:
     - RinhaNetwork
+  deploy:
+      resources:
+        limits:
+          cpus: "0.3"
+          memory: "100MB"
 
 services:
 
-  app01:
+  api01:
     <<: *default-app
     ports:
       - 8081:8080
 
-  app02:
+  api02:
     <<: *default-app
     ports:
       - 8082:8080
 
-  # nginx:
-  #   image: nginx:latest
-  #   volumes:
-  #     - ./nginx.conf:/etc/nginx/nginx.conf:ro
-  #   depends_on:
-  #     - api01
-  #     - api02
-  #   ports:
-  #     - "9999:9999" 
-  #   deploy:
-  #     resources:
-  #       limits:
-  #         cpus: "0.17"
-  #         memory: "10MB"
+  nginx:
+    image: nginx:latest
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - api01
+      - api02
+    ports:
+      - "9999:9999" 
+    networks:
+      - RinhaNetwork
+    deploy:
+      resources:
+        limits:
+          cpus: "0.17"
+          memory: "75MB"
 
   db:
     image: postgres
@@ -46,13 +53,11 @@ services:
       POSTGRES_USER: admin
       POSTGRES_PASSWORD: 1234
       POSTGRES_DB: RinhaDB
-
-  adminer:
-    image: adminer
-    ports:
-      - 8080:8080
-    networks:
-      - RinhaNetwork
+    deploy:
+      resources:
+        limits:
+          cpus: "0.15"
+          memory: "275MB"
 
 # volumes:
 #   pgsql:

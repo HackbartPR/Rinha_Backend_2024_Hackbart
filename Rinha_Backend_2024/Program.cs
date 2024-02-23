@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Rinha_Backend_2024.Database;
 using Rinha_Backend_2024.Models;
+using System.Data.Common;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<Contexto>(opt => opt.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
@@ -16,16 +17,22 @@ app.MapGet("/transacoes", async (Contexto db) =>
 
 app.MapPost("/clientes/{id}/transacoes", async (int id, Transacao transacao, Contexto db, CancellationToken cancellationToken) =>
 {
-    Cliente? cliente = await db.Clientes.FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
-    if (cliente == null) return Results.NotFound();
+    Cliente? cliente = null;
+    using (var transaction = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.ReadCommitted, cancellationToken))
+    {
+        cliente = await db.Clientes.FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
+        if (cliente == null) return Results.NotFound();
 
-    if (!cliente.Transacao(transacao))
-        return Results.StatusCode(422);
+        if (!cliente.Transacao(transacao))
+            return Results.StatusCode(422);
 
-    transacao.Registrar(cliente.Id);
+        transacao.Registrar(cliente.Id);
 
-    db.Add(transacao);
-    await db.SaveChangesAsync(cancellationToken);
+        db.Add(transacao);
+        await db.SaveChangesAsync(cancellationToken);
+        
+        await transaction.CommitAsync(cancellationToken);
+    }
 
     return Results.Ok(new { cliente.Limite, cliente.Saldo});
 });
@@ -37,6 +44,7 @@ app.MapGet("/clientes/{id}/extrato", async (int id, Contexto db, CancellationTok
 
     return Results.Ok(
         await db.Clientes
+        .AsNoTracking()
         .Where(c => c.Id == id)
         .Select(c => new
         {
