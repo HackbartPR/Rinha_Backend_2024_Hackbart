@@ -8,8 +8,8 @@ x-app: &default-app
   deploy:
       resources:
         limits:
-          cpus: "0.3"
-          memory: "100MB"
+          cpus: "0.5"
+          memory: "150MB"
 
 services:
 
@@ -37,8 +37,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.17"
-          memory: "75MB"
+          cpus: "0.14"
+          memory: "100MB"
 
   db:
     image: postgres
@@ -48,6 +48,7 @@ services:
     networks:
       - RinhaNetwork
     volumes:
+      - ./postgresql.conf:/docker-entrypoint-initdb.d/postgresql.conf
       - ./script.sql:/docker-entrypoint-initdb.d/init.sql    
     environment:
       POSTGRES_USER: admin
@@ -56,11 +57,15 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.15"
-          memory: "275MB"
+          cpus: "0.36"
+          memory: "400MB"
 
-# volumes:
-#   pgsql:
+  # adminer:
+  #   image: adminer
+  #   ports:
+  #     - 8080:8080
+  #   networks:
+  #     - RinhaNetwork
 
 networks:
   RinhaNetwork:

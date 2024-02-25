@@ -1,27 +1,28 @@
-﻿namespace Rinha_Backend_2024.Models
+﻿using System.ComponentModel.DataAnnotations.Schema;
+
+namespace Rinha_Backend_2024.Models
 {
-    /// <summary>
-    /// Representação do Modelo do Banco e da Entity Transação
-    /// </summary>
+    //[Table("transacoes")]
     public class Transacao
     {
+        //[Column("id")]
         public int Id { get; set; }
+
+        //[Column("clienteid")]
         public int ClienteId { get; set; }
+
+        //[Column("valor")]
         public long Valor { get; set; }
-        public char Tipo { get; set; }
+
+        //[Column("tipo")]
+        public string Tipo { get; set; } = string.Empty;
+
+        //[Column("descricao")]
         public string Descricao { get; set; } = string.Empty;
+
+        ///[Column("datacriacao")]
         public DateTime DataCriacao {  get; set; }
 
         public virtual Cliente Cliente { get; set; } = null!;
-
-        /// <summary>
-        /// Realiza a finalização da transação
-        /// </summary>
-        /// <param name="clientId"></param>
-        public void Registrar(int clientId)
-        {
-            ClienteId = clientId;
-            DataCriacao = DateTime.UtcNow;
-        }
     }
 }

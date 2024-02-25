@@ -8,8 +8,8 @@ CREATE TABLE "Transacoes" (
     "Id" SERIAL PRIMARY KEY,
     "ClienteId" INT NOT NULL,
     "Valor" BIGINT NOT NULL,
-    "Tipo" CHAR(1) NOT NULL,
-    "Descricao" VARCHAR(10),
+    "Tipo" VARCHAR(1) NOT NULL,
+    "Descricao" VARCHAR(30),
     "DataCriacao" TIMESTAMP WITH TIME ZONE NOT NULL,
     FOREIGN KEY ("ClienteId") REFERENCES "Clientes"("Id")
 );
