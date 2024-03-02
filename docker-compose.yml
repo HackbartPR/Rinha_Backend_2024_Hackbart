@@ -5,11 +5,13 @@ x-app: &default-app
       context: .
   networks:
     - RinhaNetwork
+  environment:
+      ASPNETCORE_ENVIRONMENT: Production
   deploy:
       resources:
         limits:
-          cpus: "0.5"
-          memory: "150MB"
+          cpus: "0.45"
+          memory: "200MB"
 
 services:
 
@@ -37,8 +39,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.14"
-          memory: "100MB"
+          cpus: "0.15"
+          memory: "10MB"
 
   db:
     image: postgres
@@ -57,15 +59,15 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.36"
-          memory: "400MB"
+          cpus: "0.45"
+          memory: "140MB"
 
-  # adminer:
-  #   image: adminer
-  #   ports:
-  #     - 8080:8080
-  #   networks:
-  #     - RinhaNetwork
+  adminer:
+    image: adminer
+    ports:
+      - 8080:8080
+    networks:
+      - RinhaNetwork
 
 networks:
   RinhaNetwork:

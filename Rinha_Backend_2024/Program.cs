@@ -1,84 +1,47 @@
-using Microsoft.EntityFrameworkCore;
-using Rinha_Backend_2024.Database;
-using Rinha_Backend_2024.Models;
+using Microsoft.AspNetCore.Mvc;
+using Rinha_Backend_2024.Domain.Config.Exceptions;
+using Rinha_Backend_2024.Domain.Entities.Cliente;
+using Rinha_Backend_2024.Domain.Entities.Shared;
+using Rinha_Backend_2024.Domain.Repositories.Cliente;
+using Rinha_Backend_2024.Domain.Repositories.Extrato;
+using Rinha_Backend_2024.Domain.Services.Cliente;
+using Rinha_Backend_2024.Infrastructure.Repositories.Cliente;
+using Rinha_Backend_2024.Infrastructure.Repositories.Extrato;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddDbContext<Contexto>(opt => opt.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
+builder.Services.AddScoped<IClienteRepository, ClienteRepository>();
+builder.Services.AddScoped<IExtratoRepository, ExtratoRepository>();
+builder.Services.AddSingleton<IConfigurationRoot>(builder.Configuration);
 var app = builder.Build();
 
 app.MapGet("/", () => "Hello World!");
 
-app.MapPost("/clientes/{id}/transacoes", async (int id, Transacao transacao, Contexto db, CancellationToken cancellationToken) =>
+app.MapPost("/clientes/{id}/transacoes", async ([FromRoute] int id, [FromBody] Transacao transacao, IClienteRepository repository, CancellationToken cancellationToken) =>
 {
-    Cliente? cliente = await db.Clientes
-        .FromSql($"SELECT * FROM \"Clientes\" FOR SHARE")
-        .Where(x => x.Id == id)
-        .FirstOrDefaultAsync(cancellationToken);
-
-    if (cliente == null) return Results.NotFound();
-
-    if (transacao.Valor < 0)
-        return Results.UnprocessableEntity();
-
-    if (!transacao.Tipo.Equals("d") && !transacao.Tipo.Equals("c"))
-        return Results.UnprocessableEntity();
-
-    if (transacao.Descricao.Length < 1 && transacao.Descricao.Length > 10)
-        return Results.UnprocessableEntity();
-
-    if (transacao.Tipo.Equals("c"))
-        cliente.Saldo += transacao.Valor;
-
-    if (transacao.Tipo.Equals("d"))
+    try
     {
-        if (cliente.Saldo - transacao.Valor < cliente.Limite)
-            return Results.UnprocessableEntity();
-
-        cliente.Saldo -= transacao.Valor;
+        Cliente cliente = await repository.ConsultarAsync(id);
+        ClienteTransacao clienteTransacao = new(null, cliente.Id, transacao);
+        ClienteService.Operacionar(cliente, clienteTransacao);
+        
+        await repository.TransacionarAsync(cliente, clienteTransacao);
+        return Results.Ok(cliente.Saldo);
     }
-
-    transacao.Cliente = cliente;
-    transacao.DataCriacao = DateTime.UtcNow;
-
-    await db.AddAsync(transacao, cancellationToken);
-    await db.SaveChangesAsync(cancellationToken);
-
-    return Results.Ok(new { cliente.Limite, cliente.Saldo});
+    catch (NotFoundException) { return Results.NotFound(); }
+    catch (UnprocessableEntityException) { return Results.UnprocessableEntity(); }
+    catch (Exception ex) { return Results.Problem(ex.Message); }
 });
 
-app.MapGet("/clientes/{id}/extrato", async (int id, Contexto db, CancellationToken cancellationToken) =>
+app.MapGet("/clientes/{id}/extrato", async ([FromRoute] int id, IClienteRepository clienteRepository, IExtratoRepository extratoRepository, CancellationToken cancellationToken) =>
 {
-    if(!await db.Clientes.AnyAsync(c => c.Id == id, cancellationToken))
-        return Results.NotFound();
-
-    return Results.Ok(
-        await db.Clientes
-        .FromSql($"SELECT * FROM \"Clientes\" FOR SHARE")
-        .AsNoTracking()
-        .Where(c => c.Id == id)
-        .Select(c => new
-        {
-            Saldo = new
-            {
-                Total = c.Saldo,
-                DataExtrato = DateTime.UtcNow,
-                c.Limite
-            },
-            Ultimas_Transacoes = db.Transacoes
-                .FromSql($"SELECT * FROM \"Transacoes\" FOR SHARE")
-                .AsNoTracking()
-                .Where(t => t.ClienteId == id)
-                .Select(t => new
-                {
-                    t.Valor,
-                    t.Tipo,
-                    t.Descricao,
-                    Realizada_Em = t.DataCriacao
-                })
-                .Take(10).OrderByDescending(t => t.Realizada_Em).ToList(),
-        })
-        .FirstOrDefaultAsync(cancellationToken)
-    ) ;
+    try
+    {
+        Cliente cliente = await clienteRepository.ConsultarAsync(id);
+        return Results.Ok(await extratoRepository.ConsultarAsync(cliente));
+    }
+    catch (NotFoundException) { return Results.NotFound(); }
+    catch (UnprocessableEntityException) { return Results.UnprocessableEntity(); }
+    catch (Exception ex) { return Results.Problem(ex.Message); }
 });
 
 app.Run();
